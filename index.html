@@ -1,1 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Statesman: Political Strategy Simulation</title>
+    <style>
+        :root {
+            --bg-color: #121824;
+            --panel-bg: #1e293b;
+            --accent-color: #3b82f6;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 15px; }
+
+        /* Setup Screen Overlay */
+        #setup-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 2000; display: flex;
+            justify-content: center; align-items: center; padding: 20px;
+        }
+        .setup-card {
+            background: var(--panel-bg); padding: 30px; border-radius: 8px;
+            max-width: 450px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 14px; font-weight: bold; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid #475569;
+            color: white; border-radius: 4px; font-size: 15px;
+        }
+
+        header { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px;
+            padding-bottom: 20px; 
+            border-bottom: 2px solid var(--panel-bg); 
+        }
+        
+        @media(min-width: 768px) {
+            header { flex-direction: row; justify-content: space-between; align-items: center; }
+        }
+
+        h1 { color: var(--accent-color); font-size: 24px; }
+        .victory-counter { background: gold; color: black; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; text-align: center; }
+
+        .main-layout { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            margin-top: 20px; 
+        }
+        
+        @media(min-width: 992px) {
+            .main-layout { display: grid; grid-template-columns: 320px 1fr; }
+        }
+        
+        .sidebar { background: var(--panel-bg); padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; }
+        .stat-card { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; }
+        .stat-card h4 { color: var(--text-muted); font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+        .stat-card p { font-size: 16px; font-weight: bold; }
+
+        .workspace { display: flex; flex-direction: column; gap: 15px; width: 100%; overflow-x: hidden; }
+        
+        .tabs { 
+            display: flex; 
+            gap: 8px; 
+            overflow-x: auto; 
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--panel-bg);
+            -webkit-overflow-scrolling: touch;
+        }
+        .tab-btn { 
+            background: rgba(255,255,255,0.05); 
+            border: none; 
+            color: var(--text-muted); 
+            padding: 10px 14px; 
+            cursor: pointer; 
+            font-size: 13px; 
+            font-weight: 600; 
+            border-radius: 4px; 
+            white-space: nowrap;
+        }
+        .tab-btn.active { color: white; background: var(--accent-color); }
+
+        .tab-content { display: none; background: var(--panel-bg); padding: 15px; border-radius: 8px; }
+        .tab-content.active { display: block; }
+
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 500px; }
+        th { color: var(--text-muted); padding: 10px 6px; border-bottom: 2px solid var(--bg-color); }
+        td { padding: 10px 6px; border-bottom: 1px solid var(--bg-color); }
+
+        .btn { background: var(--accent-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .btn-danger { background: var(--danger); }
+        .btn-success { background: var(--success); }
+
+        .badge { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .badge-demo { background: #475569; }
+        .badge-caliph { background: #047857; }
+        .badge-sultan { background: #0d9488; }
+        .badge-king { background: #b45309; }
+        .badge-dictator { background: #be123c; }
+
+        .log-box { background: rgba(0,0,0,0.4); border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #a7f3d0; }
+    </style>
+</head>
+<body>
+
+    <!-- Dynamic Game Setup Screen -->
+    <div id="setup-screen">
+        <div class="setup-card">
+            <h2 style="color: var(--accent-color); margin-bottom: 10px;">Establish Your Regime</h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 25px;">Design your starting country profile before entering the global geopolitical arena.</p>
+            
+            <div class="form-group">
+                <label for="input-name">Country Name</label>
+                <input type="text" id="input-name" value="Federation of Ameria">
+            </div>
+
+            <div class="form-group">
+                <label for="select-system">Ruling Ideology / System</label>
+                <select id="select-system">
+                    <option value="Democracy">Democracy</option>
+                    <option value="Caliphate">Caliphate</option>
+                    <option value="Sultanate">Sultanate</option>
+                    <option value="Kingdom">Kingdom</option>
+                    <option value="Dictatorship">Dictatorship</option>
+                </select>
+            </div>
+
+            <button class="btn btn-success" style="width:100%; padding: 12px; font-size:14px;" onclick="startGame()">Launch Simulation</button>
+        </div>
+    </div>
+
+    <!-- Main Game Workspace Window -->
+    <header>
+        <div>
+            <h1>The Statesman</h1>
+            <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">Year <span id="game-year">2026</span> | Turn <span id="game-turn">1</span></p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; width: 100%; max-width: 400px;">
+            <div class="victory-counter">Controlled: <span id="controlled-count">1</span> / 51</div>
+            <button class="btn btn-success" style="padding: 10px 16px;" onclick="nextTurn()">End Turn</button>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <div class="sidebar">
+            <h3 id="player-name">Your Empire</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="stat-card">
+                    <h4>System</h4>
+                    <p><span class="badge badge-demo" id="player-system">Democracy</span></p>
+                </div>
+                <div class="stat-card">
+                    <h4>Army</h4>
+                    <p><span id="player-army">500</span>K</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h4>Treasury / Turn Income</h4>
+                <p>$<span id="player-money">22000</span>M (<span id="player-income" style="color:var(--success)">+50</span>M)</p>
+            </div>
+            <div class="stat-card">
+                <h4>Demographics</h4>
+                <p style="font-size: 12px; color: var(--text-muted);">Pop: 5.0 Crore | Area: 9.8M km²</p>
+            </div>
+            <div class="log-box" id="log-box">> Real-world geopolitical dataset loaded successfully.</div>
+        </div>
+
+        <div class="workspace">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'world')">World Map</button>
+                <button class="tab-btn" onclick="switchTab(event, 'trade')">Trade Links</button>
+                <button class="tab-btn" onclick="switchTab(event, 'military')">War Room</button>
+                <button class="tab-btn" onclick="switchTab(event, 'diplomacy')">Diplomacy</button>
+            </div>
+
+            <div id="world" class="tab-content active">
+                <h3 style="font-size:16px;">Global Sovereignties (100 Real Nations)</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>State</th><th>Ruling System</th><th>Population</th><th>Area</th><th>GDP</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="world-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="trade" class="tab-content">
+                <h3>Global Markets (+10% Match / -10% Friction)</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>State</th><th>Base Value</th><th>Net Revenue</th><th>Action</th></tr>
+                        </thead>
+                        <tbody id="trade-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="military" class="tab-content">
+                <h3>War Room</h3>
+                <button class="btn btn-success" style="width:100%; margin-bottom:15px;" onclick="recruitTroops()">Recruit 50K Troops ($10M)</button>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>Target State</th><th>Forces</th><th>Logistics Cost</th><th>Action</th></tr>
+                        </thead>
+                        <tbody id="military-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="diplomacy" class="tab-content">
+                <h3>Foreign Ministry</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>State</th><th>System</th><th>Alignment</th><th>Action</th></tr>
+                        </thead>
+                        <tbody id="diplomacy-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let turn = 1, year = 2026, money = 22000, army = 500, states = [];
+        let playerSystem = "Democracy";
+        let playerName = "Federation of Ameria";
+
+        const SYSTEMS = ["Democracy", "Caliphate", "Sultanate", "Kingdom", "Dictatorship"];
+        
+        const REAL_COUNTRIES = [
+            "United States", "Canada", "United Kingdom", "Germany", "France", "Japan", "India", "China", "Brazil", "Australia",
+            "Maldives", "Oman", "Saudi Arabia", "Brunei", "North Korea", "Egypt", "Russia", "Turkey", "Indonesia", "Pakistan",
+            "South Africa", "Mexico", "Argentina", "Italy", "Spain", "South Korea", "Vietnam", "Thailand", "Malaysia", "Singapore",
+            "New Zealand", "Netherlands", "Belgium", "Switzerland", "Sweden", "Norway", "Denmark", "Finland", "Ireland", "Poland",
+            "Ukraine", "Greece", "Portugal", "Austria", "Czech Republic", "Hungary", "Romania", "Chile", "Colombia", "Peru",
+            "Venezuela", "Cuba", "Iran", "Iraq", "Syria", "Jordan", "Lebanon", "Israel", "UAE", "Qatar",
+            "Kuwait", "Bahrain", "Yemen", "Afghanistan", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "Myanmar", "Cambodia",
+            "Laos", "Philippines", "Mongolia", "Kazakhstan", "Uzbekistan", "Algeria", "Morocco", "Tunisia", "Libya", "Sudan",
+            "Ethiopia", "Kenya", "Nigeria", "Ghana", "Ivory Coast", "Angola", "Zambia", "Zimbabwe", "Botswana", "Namibia",
+            "Madagascar", "Mauritius", "Seychelles", "Fiji", "Monaco", "Vatican City", "Luxembourg", "Iceland", "Panama", "Costa Rica"
+        ];
+
+        function getBadgeClass(sys) {
+            if(sys === "Democracy") return "badge-demo";
+            if(sys === "Caliphate") return "badge-caliph";
+            if(sys === "Sultanate") return "badge-sultan";
+            if(sys === "Kingdom") return "badge-king";
+            return "badge-dictator";
+        }
+
+        function startGame() {
+            playerName = document.getElementById("input-name").value.trim() || "Sovereignty";
+            playerSystem = document.getElementById("select-system").value;
+
+            // Hide Setup Screen Panel
+            document.getElementById("setup-screen").style.display = "none";
+
+            // Update Sidebar Display Info 
+            document.getElementById("player-name").innerText = playerName;
+            const sysBadge = document.getElementById("player-system");
+            sysBadge.innerText = playerSystem;
+            sysBadge.className = `badge ${getBadgeClass(playerSystem)}`;
+
+            // Initialize entire geopolitical landscape
+            generateWorld();
+            updateMetrics();
+        }
+
+        function generateWorld() {
+            states = [];
+            // Slot 0 is assigned to customized Player parameters
+            states.push({ id: 0, name: playerName, system: playerSystem, pop: "5.0 Crore", area: "9.8M", gdp: 22000, army: 500, status: "Player", trade: false, baseRes: 150 });
+            
+            for(let i = 1; i < 100; i++) {
+                let name = REAL_COUNTRIES[i];
+                let sys;
+
+                // Make specific prominent real-world countries load logical setups
+                if(["Saudi Arabia", "Jordan", "Morocco", "UK", "Spain", "Sweden"].some(c => name.includes(c))) sys = "Kingdom";
+                else if(["Oman", "Brunei", "Qatar"].some(c => name.includes(c))) sys = "Sultanate";
+                else if(["North Korea", "Cuba", "Syria", "Venezuela"].some(c => name.includes(c))) sys = "Dictatorship";
+                else if(["Iran", "Afghanistan"].some(c => name.includes(c))) sys = "Caliphate";
+                else sys = SYSTEMS[Math.floor(Math.random() * SYSTEMS.length)];
+
+                // Prevent AI duplicate naming if player picks a real name
+                if(name.toLowerCase() === playerName.toLowerCase()) {
+                    name = name + " Core";
+                }
+
+                let isSmall = ["Maldives", "Monaco", "Vatican City", "Seychelles", "Mauritius", "Luxembourg", "Bahrain"].includes(name);
+                let isGiant = ["China", "India", "Russia", "Brazil", "Canada"].includes(name);
+
+                let popStr, areaStr, gdpVal, armyVal;
+                if(isSmall) {
+                    popStr = "4.0 Lakh"; areaStr = "300 km²"; gdpVal = 180; armyVal = 12;
+                } else if(isGiant) {
+                    popStr = "25.0 Crore"; areaStr = "12M km²"; gdpVal = 14000; armyVal = 450;
+                } else {
+                    popStr = "2.5 Crore"; areaStr = "600K km²"; gdpVal = 3500; armyVal = 85;
+                }
+
+                states.push({
+                    id: i,
+                    name: name,
+                    system: sys,
+                    pop: popStr,
+                    area: areaStr,
+                    gdp: gdpVal,
+                    army: armyVal + Math.floor(Math.random() * 30),
+                    status: "Independent",
+                    trade: false,
+                    baseRes: isSmall ? 15 : (isGiant ? 120 : 70)
+                });
+            }
+        }
+
+        function switchTab(evt, tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if(evt) evt.currentTarget.classList.add('active');
+        }
+
+        function logEvent(msg) {
+            const box = document.getElementById("log-box");
+            box.innerHTML += `<br/>> ${msg}`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function updateMetrics() {
+            let controlled = states.filter(s => s.status === "Player" || s.status === "Controlled" || s.status === "Ally").length;
+            document.getElementById("controlled-count").innerText = controlled;
+            document.getElementById("player-money").innerText = money;
+            document.getElementById("player-army").innerText = army;
+            document.getElementById("game-turn").innerText = turn;
+            document.getElementById("game-year").innerText = year;
+
+            if(controlled >= 51) {
+                alert(`GEOPOLITICAL VICTORY! The ${playerName} has established hegemony over 51 nations!`);
+                window.location.reload();
+            }
+
+            let income = 50;
+            let wHtml = "", tHtml = "", mHtml = "", dHtml = "";
+
+            states.forEach(s => {
+                // Dynamic alignment verification based on player selected system
+                let isMatch = (s.system === playerSystem);
+                let modifier = isMatch ? 1.10 : 0.90;
+                let finalTrade = Math.floor(s.baseRes * 0.4 * modifier);
+
+                if(s.trade) income += finalTrade;
+                if(s.status === "Controlled") income += Math.floor(s.baseRes * 0.6);
+                if(s.status === "Ally") income += Math.floor(s.baseRes * 0.5 * modifier);
+
+                wHtml += `<tr><td><b>${s.name}</b></td><td><span class="badge ${getBadgeClass(s.system)}">${s.system}</span></td><td>${s.pop}</td><td>${s.area}</td><td>$${s.gdp}M</td><td>${s.status}</td></tr>`;
+                
+                if(s.id !== 0) {
+                    tHtml += `<tr><td>${s.name}</td><td>$${Math.floor(s.baseRes*0.4)}M</td><td>+$${finalTrade}M</td><td><button class="btn" onclick="toggleTrade(${s.id})">${s.trade?'Close':'Open'}</button></td></tr>`;
+                    
+                    if(s.status !== "Controlled") {
+                        let cost = Math.floor(s.gdp * 0.12) + 15;
+                        mHtml += `<tr><td>${s.name}</td><td>${s.army}K</td><td>$${cost}M</td><td><button class="btn btn-danger" onclick="invade(${s.id}, ${cost})">Attack</button></td></tr>`;
+                    }
+
+                    let dBtn = s.status === "Ally" ? `<button class="btn btn-danger" onclick="breakAlliance(${s.id})">Break</button>` : `<button class="btn" style="background:var(--success)" onclick="formAlliance(${s.id})">Ally ($50M)</button>`;
+                    if(s.status === "Controlled") dBtn = `<span class="badge">Vassal</span>`;
+                    
+                    let alignmentLabel = isMatch ? "Ideology Match (+10%)" : "Ideology Mismatch (-10%)";
+                    dHtml += `<tr><td>${s.name}</td><td><span class="badge ${getBadgeClass(s.system)}">${s.system}</span></td><td style="color:${isMatch?'var(--success)':'var(--warning)'}">${alignmentLabel}</td><td>${dBtn}</td></tr>`;
+                }
+            });
+
+            document.getElementById("player-income").innerText = income >= 0 ? `+${income}` : income;
+            document.getElementById("world-table-body").innerHTML = wHtml;
+            document.getElementById("trade-table-body").innerHTML = tHtml;
+            document.getElementById("military-table-body").innerHTML = mHtml;
+            document.getElementById("diplomacy-table-body").innerHTML = dHtml;
+            window.nextIncome = income;
+        }
+
+        function toggleTrade(id) {
+            states[id].trade = !states[id].trade;
+            logEvent(`Trade lines updated with ${states[id].name}`);
+            updateMetrics();
+        }
+
+        function recruitTroops() {
+            if(money >= 10) { money -= 10; army += 50; lo
